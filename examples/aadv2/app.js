@@ -1,19 +1,24 @@
 'use strict';
 
-require('dotenv').config();
-
 const botauth = require("botauth");
 const restify = require('restify');
 const builder = require('botbuilder');
 const OIDCStrategy = require('passport-azure-ad').OIDCStrategy;
 const envx = require("envx");
 const expressSession = require('express-session');
-//const crypto = require('crypto');
-//const querystring = require('querystring');
 
 const WEBSITE_HOSTNAME = envx("WEBSITE_HOSTNAME");
 const PORT = envx("PORT", 3998);
 const BOTAUTH_SECRET = envx("BOTAUTH_SECRET");
+
+//bot application identity
+const MICROSOFT_APP_ID = envx("MICROSOFT_APP_ID");
+const MICROSOFT_APP_PASSWORD = envx("MICROSOFT_APP_PASSWORD");
+
+//oauth details for dropbox
+const AZUREAD_APP_ID = envx("AZUREAD_APP_ID");
+const AZUREAD_APP_PASSWORD = envx("AZUREAD_APP_PASSWORD");
+const AZUREAD_APP_REALM = envx("AZUREAD_APP_REALM");
 
 //=========================================================
 // Bot Setup
@@ -21,16 +26,16 @@ const BOTAUTH_SECRET = envx("BOTAUTH_SECRET");
 
 // Setup Restify Server
 var server = restify.createServer();
-server.listen(process.env.port || process.env.PORT || 3979, function () {
+server.listen(PORT, function () {
   console.log('%s listening to %s', server.name, server.url); 
 });
   
 // Create chat bot
 console.log('started...')
-console.log(process.env.MICROSOFT_APP_ID);
+console.log(MICROSOFT_APP_ID);
 var connector = new builder.ChatConnector({
-  appId: process.env.MICROSOFT_APP_ID,
-  appPassword: process.env.MICROSOFT_APP_PASSWORD
+  appId: MICROSOFT_APP_ID,
+  appPassword: MICROSOFT_APP_PASSWORD
 });
 var bot = new builder.UniversalBot(connector);
 server.post('/api/messages', connector.listen());
@@ -47,28 +52,25 @@ server.use(restify.bodyParser());
 server.use(expressSession({ secret: BOTAUTH_SECRET, resave: true, saveUninitialized: false }));
 //server.use(passport.initialize());
 
-// Use the v2 endpoint (applications configured by apps.dev.microsoft.com)
-// For passport-azure-ad v2.0.0, had to set realm = 'common' to ensure authbot works on azure app service
-
-
 var ba = new botauth.BotAuthenticator(server, bot, { session: true, baseUrl: `https://${WEBSITE_HOSTNAME}`, secret : BOTAUTH_SECRET });
 
 ba.provider("aadv2", (options) => {
-    var realm = process.env.MICROSOFT_REALM; 
-    console.log(options);
+    // Use the v2 endpoint (applications configured by apps.dev.microsoft.com)
+    // For passport-azure-ad v2.0.0, had to set realm = 'common' to ensure authbot works on azure app service
     let oidStrategyv2 = {
       redirectUrl: options.callbackURL, //  redirect: /botauth/aadv2/callback
-      realm: realm,
-      clientID: process.env.MICROSOFT_APP_ID,
-      clientSecret: process.env.MICROSOFT_APP_PASSWORD,
-      identityMetadata: 'https://login.microsoftonline.com/' + realm + '/v2.0/.well-known/openid-configuration',
-      skipUserProfile: true,
+      realm: AZUREAD_APP_REALM,
+      clientID: AZUREAD_APP_ID,
+      clientSecret: AZUREAD_APP_PASSWORD,
+      identityMetadata: 'https://login.microsoftonline.com/' + AZUREAD_APP_REALM + '/v2.0/.well-known/openid-configuration',
+      skipUserProfile: false,
       validateIssuer: false,
       //allowHttpForRedirectUrl: true,
       responseType: 'code',
       responseMode: 'query',
-      scope: ['email', 'profile'],
-      passReqToCallback: true
+      scope: ['email', 'profile', 'offline_access', 'https://graph.microsoft.com/mail.read'],
+      passReqToCallback: true,
+      loggingLevel: "info"
     };
 
     let strategy = oidStrategyv2;
@@ -107,8 +109,8 @@ bot.dialog("/signin", [].concat(
     ba.authenticate("aadv2"),
     (session, args, skip) => {
         let user = ba.profile(session, "aadv2");
-        session.send(user.displayName);
-        // console.log(user.accessToken);
-        // console.log(user.refreshToken);
+        session.endDialog(user.displayName);
+        console.log(user.accessToken);
+        console.log(user.refreshToken);
     }
 ));

@@ -14,8 +14,13 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+<<<<<<< HEAD
     "botauth": "next",
     "botbuilder": "next",
+=======
+    "botauth": "^0.2.10",
+    "botbuilder": "^3.5.0-rc7",
+>>>>>>> 53c1d3ded7c9de41b01497a32e152108a2b1d3d8
     "dotenv": "^2.0.0",
     "envx": "^1.0.0",
     "express-session": "^1.14.2",

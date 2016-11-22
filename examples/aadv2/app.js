@@ -69,8 +69,7 @@ ba.provider("aadv2", (options) => {
       responseType: 'code',
       responseMode: 'query',
       scope: ['email', 'profile', 'offline_access', 'https://graph.microsoft.com/mail.read'],
-      passReqToCallback: true,
-      loggingLevel: "info"
+      passReqToCallback: true
     };
 
     let strategy = oidStrategyv2;
